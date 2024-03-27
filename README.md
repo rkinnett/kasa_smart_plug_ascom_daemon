@@ -11,14 +11,13 @@ The daemon produces verbose screen print outputs which can generally be ignored 
     pip install python-kasa  
   
   Syntax:  
-    python start_server.py  [server_address (optional]  [control port (optional)]
+    python start_server.py  [server_address (optional]  [control port (optional)]  
  
-      default server address is "localhost" (127.0.0.1)
-        you may wish to use address 0.0.0.0 if you want the server to be accessible from other computers.
-      
-      default control port is 8000
+    default server address is "localhost" (127.0.0.1)  
+    you may wish to use address 0.0.0.0 if you want the server to be accessible from other computers.  
+    default control port is 8000  
 
-  Examples:
-    python start_server.py
-    python start_server.py localhost
-    python start_server.py 0.0.0.0 8000
+  Examples:  
+    python start_server.py  
+    python start_server.py localhost  
+    python start_server.py 0.0.0.0 8000  
