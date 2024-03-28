@@ -14,7 +14,7 @@ The created ASCOM-Remote server should be discoverable through the driver select
 
 ## Run the released executable (Windows only):
 ##### Download:
-<https://github.com/rkinnett/kasa_smart_plug_ascom_daemon/releases/download/v0/start-server.exe>
+<https://github.com/rkinnett/kasa_smart_plug_ascom_daemon/releases/download/v0/kasa_ascom_server.exe>
 
   Start the server by either double-clicking the .exe file or by invoking it by command line from inside Windows Command Prompt.  Then you should be able to connect astronomy software (e.g. NINA) to it via the standard ASCOM driver selector tool.  By default, the server can only be accessed from the same computer that's running it, and can be found on port 8000.  If the ASCOM driver selector does not automatically discover the server, then 
   
@@ -36,7 +36,5 @@ Use address 0.0.0.0 to make the server accessible from other computers on your l
 ## Supported Hardware:
 Any of the devices supported by the python-kasa library should work:  
 <https://python-kasa.readthedocs.io/en/latest/SUPPORTED.html>  
-  
-Tested with HS103 single-outlet plugs and an HS300 smart power strip.  
-
-Buy Kasa smart plugs on [amazon](https://www.amazon.com/s?k=kasa+smart+plug)
+* Tested with HS103 single-outlet plugs and an HS300 smart power strip.  
+* Buy Kasa smart plugs on [amazon](https://www.amazon.com/s?k=kasa+smart+plug)
