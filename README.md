@@ -15,23 +15,26 @@ The created ASCOM-Remote server should be discoverable through the driver select
 ## Run the released executable (Windows only):
 ##### Download:
 <https://github.com/rkinnett/kasa_smart_plug_ascom_daemon/releases/download/v0/kasa_ascom_server.exe>
-
-  Start the server by either double-clicking the .exe file or by invoking it by command line from inside Windows Command Prompt.  Then you should be able to connect astronomy software (e.g. NINA) to it via the standard ASCOM driver selector tool.  By default, the server can only be accessed from the same computer that's running it, and can be found on port 8000.  If the ASCOM driver selector does not automatically discover the server, then 
+* Start the server by either double-clicking the .exe file or by invoking it by command line from inside Windows Command Prompt.
+* Syntax as below.
   
-## Or run from python (platform agnostic):
+## Or run from python3 (platform agnostic):
 ##### Requires:
-	 pip install python-kasa  
+	pip install python-kasa
+  
+##### Download project code:
+	git clone https://github.com/rkinnett/kasa_smart_plug_ascom_daemon.git 
   
 ##### Syntax:  
-	python start_server.py  [-a server_address (optional]  [-p port (optional)]  
+	python3 start_server.py  [-a server_address (optional]  [-p port (optional)]  
 		default server address is "localhost" (127.0.0.1)  
 		default control port is 8000  
 Use address 0.0.0.0 to make the server accessible from other computers on your local network.
 
-#####  Examples:  
-    python start_server.py  
-    python start_server.py -a localhost  
-    python start_server.py -a 0.0.0.0 -p 8000  
+##### Examples:  
+	python3 start_server.py  
+	python3 start_server.py -a localhost  
+	python3 start_server.py -a 0.0.0.0 -p 8000  
 
 ## Supported Hardware:
 Any of the devices supported by the python-kasa library should work:  
