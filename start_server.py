@@ -290,8 +290,8 @@ class SwitchManager():
     def setConnected(self, transaction):
         self.alpaca.connected = transaction.params["connected"] in ("true", "True")
         # don't send a response if client is disconnecting
-        if self.alpaca.connected:
-            return self.alpaca.nominal_response(transaction )
+        #if self.alpaca.connected:
+        return self.alpaca.nominal_response(transaction )
 
     def setSwitch(self, transaction):
         try:
@@ -377,6 +377,7 @@ async def main():
     parser.add_argument(
         "-a",
         "--address",
+        type=str,
         default="localhost",
         help="Specify the IP address on which the server listens",
     )
@@ -388,7 +389,7 @@ async def main():
         help="Specify the port on which the server listens",
     )
     args = parser.parse_args()
-    
+    print('args:',args)
     alpaca_device_control_port = args.port
     
     alpaca = Alpaca(
