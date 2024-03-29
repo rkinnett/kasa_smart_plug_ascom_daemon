@@ -1,4 +1,4 @@
-# Kasa Smart Plut ASCOM-Remote Virtual Hub
+# Kasa Smart Plug ASCOM-Remote Virtual Hub
 *Virtual hub and ASCOM-Remote (Alpaca) server for Kasa smart switches.*
 
 This ASCOM-Remote server program automatically detects all available Kasa smart switching devices on a local network, then acts as a communication relay between the discovered switches and ASCOM-client astronomy software.
