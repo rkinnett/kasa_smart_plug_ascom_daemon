@@ -125,7 +125,7 @@ class SwitchManager():
                     new_switch_list.append(KasaSwitch(kasa_device = device))            
         self.switches = new_switch_list
         self.num_switches = len(self.switches)
-        print('found %i kasa switches' % self.num_switches)
+        print('  found %i kasa switches' % self.num_switches)
         self.discovery_loop_busy = False
         
         
@@ -145,7 +145,7 @@ class SwitchManager():
         while True:
             if not self.discovery_loop_busy:
                 if not self.state_check_loop_busy:
-                    print('####### state check loop updating states #######')
+                    print('State check loop updating switch states')
                     self.state_check_loop_busy = True
                     await self.check_switches()
                     self.state_check_loop_busy = False
@@ -390,6 +390,11 @@ class SwitchManager():
         return self.alpaca.nominal_response(transaction)    
 
 
+def delay_print(outstr, delay=0.01):
+  for char in outstr:
+    print(char, end='', flush=True)
+    time.sleep(delay)
+
 
 async def main():
 
@@ -405,9 +410,12 @@ async def main():
         
     """)
     
-    
-    print('\n\nINITIALIZING...')
-    print('Please wait a few seconds for the server to initialize before connecting client\n\n')
+    print('\n')
+    delay_print('>>>>>>>>>>>>>>>   INITIALIZING...  >>>>>>>>>>>>>>\n')
+    time.sleep(0.5)
+    delay_print('         This will take a few seconds...',0.05)
+    print('\n\n')
+    time.sleep(1)
 
     # Parse command line arguments:
     parser = argparse.ArgumentParser(description="Run a simple HTTP server")
@@ -427,7 +435,7 @@ async def main():
     )
     args = parser.parse_args()
     #print('Specified arguments:',args)
-    print('Kasa ASCOM-Remote server address: %s, port: %i' % (args.address, args.port))
+    #print('Kasa ASCOM-Remote server address: %s, port: %i' % (args.address, args.port))
     alpaca_device_control_port = args.port
     
     alpaca = Alpaca(
@@ -441,11 +449,17 @@ async def main():
     
     alpaca.bindMethods(switch_manager.alpaca_methods)
     alpaca.start()
-    print("\n\n\n >>>>>>>>>>>>  Kasa Alpaca server started  <<<<<<<<<<<<< \n\n")
-    print(      "         Clients may now discover and connect...         \n\n\n")
-    print('To stop the Kasa ASCOM-remote server, press ctrl-c or close this window.\n\n\n')
+    delay_print("\n\n\n >>>>>>>>>>>>  Kasa Alpaca server started  <<<<<<<<<<<<< \n")
+    time.sleep(1)
+    delay_print(      "         Clients may now discover and connect...         \n",0.02)
+    print('\n\n')
+    time.sleep(1)
+    delay_print('!!!  To stop the Kasa ASCOM-remote server, press ctrl-c or close this window.\n',0.02)
+    time.sleep(1)
+    delay_print('Status information that follows may be ignored unless troubleshooting.\n',0.02)
+    print('\n\n')
+    time.sleep(2)
 
-    time.sleep(10)
     print('Starting switch state auto-rediscover and state check loops...')
     await switch_manager.start_discovery_loop()
     await switch_manager.start_state_check_loop()
