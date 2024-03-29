@@ -1,10 +1,8 @@
-"""
-Alpaca server
-
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Kasa Switch ASCOM-Remote Server
 R. Kinnett, 2024
-
-
-"""
+https://github.com/rkinnett/kasa_smart_plug_ascom_daemon
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 import argparse
 import asyncio
 from alpaca import Alpaca
@@ -165,7 +163,7 @@ class SwitchManager():
     async def discovery_loop(self):
         while True:
             if not self.discovery_loop_busy:
-                print('####### discovery loop discovering #######')
+                #print('####### discovery loop discovering #######')
                 await self.discover()
             else:
                 print('!!!!!! discovery busy, skipping')
@@ -179,31 +177,31 @@ class SwitchManager():
 
 
     def getConnected(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": self.alpaca.connected})
+        return self.alpaca.nominal_response(transaction, value=self.alpaca.connected)
 
     def getDescription(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": "Kasa smart plug daemon"})
+        return self.alpaca.nominal_response(transaction, value="Kasa smart plug daemon")
         
     def getDriverInfo(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": "Kasa smart plug daemon"})
+        return self.alpaca.nominal_response(transaction, value="Kasa smart plug daemon")
         
     def getDriverVersion(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": self.version})
+        return self.alpaca.nominal_response(transaction, value=self.version)
         
     def getInterfaceVersion(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": self.alpaca.api.version})
+        return self.alpaca.nominal_response(transaction, value=self.alpaca.api.version)
 
     def getName(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": "Kasa smart plug daemon"})
+        return self.alpaca.nominal_response(transaction, value="Kasa smart plug daemon")
         
     def getSupportedActions(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": []})
+        return self.alpaca.nominal_response(transaction, value=[])
 
     def getMaxSwitch(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": self.num_switches})
+        return self.alpaca.nominal_response(transaction, value=self.num_switches)
     
     def getCanWrite(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": "True"})
+        return self.alpaca.nominal_response(transaction, value=True)
 
     def getSwitch(self, transaction):
         try:
@@ -221,13 +219,31 @@ class SwitchManager():
                 'invalid switch id: %i' % switch_num
             )
         switch.check()
-        return self.alpaca.nominal_response(transaction, {"Value": switch.state})
+        return self.alpaca.nominal_response(transaction, value=switch.state)
             
     def getSwitchDescription(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": "a Kasa switch"})
+        # Get switch number from params, then get the specified switch
+        try:
+            switch_num = int(transaction.params["id"])
+        except:
+            return self.alpaca.error_response(transaction,
+                self.alpaca.api.error_codes['INVALID_VALUE'], 
+                'invalid switch id: %i' % switch_num
+            )
+        #print('switch num %i' % switch_num)
+        try: 
+            switch = self.switches[switch_num]
+            #print(switch)
+        except IndexError:
+            return self.alpaca.error_response(transaction,
+                self.alpaca.api.error_codes['INVALID_VALUE'], 
+                'invalid switch id: %i' % switch_num
+            )
+        description = 'Kasa switch type ' + switch.type
+        return self.alpaca.nominal_response(transaction, value=description)        
 
     def getSwitchName(self, transaction):
-        print('getSwitchName')
+        #print('getSwitchName')
         #print(transaction.params)
         try:
             switch_num = int(transaction.params["id"])
@@ -236,16 +252,16 @@ class SwitchManager():
                 self.alpaca.api.error_codes['INVALID_VALUE'], 
                 'invalid switch id: %i' % switch_num
             )
-        print('switch num %i' % switch_num)
+        #print('switch num %i' % switch_num)
         try: 
             switch = self.switches[switch_num]
-            print(switch)
+            #print(switch)
         except IndexError:
             return self.alpaca.error_response(transaction,
                 self.alpaca.api.error_codes['INVALID_VALUE'], 
                 'invalid switch id: %i' % switch_num
             )
-        return self.alpaca.nominal_response(transaction, {"Value": switch.name})
+        return self.alpaca.nominal_response(transaction, value=switch.name)
 
     def getSwitchValue(self, transaction):
         try:
@@ -262,18 +278,20 @@ class SwitchManager():
                 self.alpaca.api.error_codes['INVALID_VALUE'], 
                 'invalid switch id: %i' % switch_num
             )
+        time.sleep(0.25)
         switch.check()
         print('Switch state: %s' % str(switch.state))
-        return self.alpaca.nominal_response(transaction, {"Value": 1 if switch.state else 0})
+        value = 1 if switch.state else 0
+        return self.alpaca.nominal_response(transaction, value=value)
             
     def getMinSwitchValue(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": 0})
+        return self.alpaca.nominal_response(transaction, value=0)
 
     def getMaxSwitchValue(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": 1})
+        return self.alpaca.nominal_response(transaction, value=1)
 
     def getSwitchStep(self, transaction):
-        return self.alpaca.nominal_response(transaction, {"Value": 1})
+        return self.alpaca.nominal_response(transaction, value=1)
         
     def doAction(self, transaction):
         return self.alpaca.not_supported_response(transaction)
@@ -290,8 +308,11 @@ class SwitchManager():
     def setConnected(self, transaction):
         self.alpaca.connected = transaction.params["connected"] in ("true", "True")
         # don't send a response if client is disconnecting
-        #if self.alpaca.connected:
-        return self.alpaca.nominal_response(transaction )
+        if self.alpaca.connected:        
+            print('\n\n>>>>>>>>>>>>>>> CLIENT CONNECTED >>>>>>>>>>>>>>\n\n')
+        else:
+            print('\n\nXXXXXXXXXXXXXXX CLIENT DISCONNECTED XXXXXXXXXXXXXXXX\n\n')        
+        return self.alpaca.nominal_response(transaction)
 
     def setSwitch(self, transaction):
         try:
@@ -372,6 +393,22 @@ class SwitchManager():
 
 async def main():
 
+    print("""
+
+
+
+    +-------------------------------------------------------------------------+
+    |                  Kasa Smart Plug ASCOM-Remote Daemon                    |  
+    |                           R. Kinnett, 2024                              | 
+    |        https://github.com/rkinnett/kasa_smart_plug_ascom_daemon         |
+    +-------------------------------------------------------------------------+
+        
+    """)
+    
+    
+    print('\n\nINITIALIZING...')
+    print('Please wait a few seconds for the server to initialize before connecting client\n\n')
+
     # Parse command line arguments:
     parser = argparse.ArgumentParser(description="Run a simple HTTP server")
     parser.add_argument(
@@ -389,7 +426,8 @@ async def main():
         help="Specify the port on which the server listens",
     )
     args = parser.parse_args()
-    print('args:',args)
+    #print('Specified arguments:',args)
+    print('Kasa ASCOM-Remote server address: %s, port: %i' % (args.address, args.port))
     alpaca_device_control_port = args.port
     
     alpaca = Alpaca(
@@ -405,7 +443,8 @@ async def main():
     
     alpaca.bindMethods(switch_manager.alpaca_methods)
     alpaca.start()
-    print("Kasa switch alpaca server started")
+    print("\n\n\n >>>>>>>>>>>>  Kasa Alpaca server started  <<<<<<<<<<<<< \n\n")
+    print(      "         Clients may now discover and connect...         \n\n\n")
 
 
 asyncio.run(main())

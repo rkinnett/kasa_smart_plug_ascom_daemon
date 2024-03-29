@@ -1,3 +1,36 @@
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Kasa Switch ASCOM-Remote Server
+R. Kinnett, 2024
+https://github.com/rkinnett/kasa_smart_plug_ascom_daemon
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+alpaca.py
+
+Devines Alpaca class:
+  
+    Initialize like:
+        alpaca = Alpaca(device_type = "Switch", server_address = address, control_port = port)
+    
+    Start:
+        alpaca.bindMethods(device_manager.alpaca_methods)
+        alpaca.start()
+
+    Functions:
+        alpaca.bindMethod(self, method_type, method_name, action)
+        alpaca.bindMethods(self, methods_list)
+        
+        alpaca.nominal_response(self, transaction, value=None)
+        alpaca.error_response(self, transaction, error_number, error_message)
+        alpaca.device_error_response(self, transaction, error_message)
+        alpaca.invalid_request_response(self, transaction, error_message)
+        alpaca.not_supported_response(self, transaction)
+        alpaca.management_response(self, transaction, value)
+        
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
 from http.server import HTTPServer, BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import asyncio
@@ -50,15 +83,15 @@ class AlpacaAPI():
                 "setswitchvalue":       {"device_number":"int", "id":"int", "value":"float"},   # Sets a switch device value to the specified value
             },
             'GET': {
-                "maxswitch":            {"device_number":"int"},                # The number of switch devices managed by this driver
-                "canwrite":             {"device_number":"int", "id":"int"},    # Indicates whether the specified switch device can be written to
-                "getswitch":            {"device_number":"int", "id":"int"},    # Return the state of switch device id as a boolean
-                "getswitchdescription": {"device_number":"int", "id":"int"},    # Gets the description of the specified switch device
-                "getswitchname":        {"device_number":"int", "id":"int"},    # Gets the name of the specified switch device
-                "getswitchvalue":       {"device_number":"int", "id":"int"},    # Gets the value of the specified switch device as a double
-                "minswitchvalue":       {"device_number":"int", "id":"int"},    # Gets the minimum value of the specified switch device as a double
-                "maxswitchvalue":       {"device_number":"int", "id":"int"},    # Gets the maximum value of the specified switch device as a double
-                "switchstep":           {"device_number":"int", "id":"int"},    # Returns the step size that this device supports (the difference between successive values of the device).
+                "maxswitch":            {"device_number":"int"},              # The number of switch devices managed by this driver
+                "canwrite":             {"device_number":"int", "id":"int"},  # Indicates whether the specified switch device can be written to
+                "getswitch":            {"device_number":"int", "id":"int"},  # Return the state of switch device id as a boolean
+                "getswitchdescription": {"device_number":"int", "id":"int"},  # Gets the description of the specified switch device
+                "getswitchname":        {"device_number":"int", "id":"int"},  # Gets the name of the specified switch device
+                "getswitchvalue":       {"device_number":"int", "id":"int"},  # Gets the value of the specified switch device as a double
+                "minswitchvalue":       {"device_number":"int", "id":"int"},  # Gets the minimum value of the specified switch device as a double
+                "maxswitchvalue":       {"device_number":"int", "id":"int"},  # Gets the maximum value of the specified switch device as a double
+                "switchstep":           {"device_number":"int", "id":"int"},  # Returns the step size that this device supports (the difference between successive values of the device).
             }
         }
     }
@@ -86,13 +119,13 @@ class Alpaca():
     server_transaction_count = 0
     methods = {"GET":{}, "PUT":{}}
         
-    def __init__(self, device_type, server_address='127.0.0.1', control_port=8000):
+    def __init__(self, device_type, server_address='127.0.0.1', control_port=8000, discovery_port=32227):
         assert device_type in self.api.supported_device_types, 'device type "%s" not supported' % device_type
         self.server_address = server_address
         self.control_port = control_port
         self.device_type = device_type
+        self.discovery_port = discovery_port
         self.server = self.AlpacaHttpServer(self, server_address, control_port)
-        self.discovery_responder = self.DiscoveryResponder(server_address, control_port)
 
         # re-catalog API-listed methods, pulling in Common and device type-specific methods
         for api_method_group in ("Common", self.device_type):
@@ -109,7 +142,13 @@ class Alpaca():
             for method_name in list(self.methods[method_type].keys()):
                 if self.methods[method_type][method_name]["action"] is None:
                     print('Warning: Alpaca API %s method "%s" not bound' % (method_type, method_name))
+        print('Starting Alpaca device server')
         self.server.start()
+        
+        print('Initializing Alpaca discovery responder')
+        self.discovery_responder = self.DiscoveryResponder(self.server_address, self.discovery_port, self.control_port)
+
+        
         
     def bindMethod(self, method_type, method_name, action):
         assert method_type in ("GET", "PUT"), 'Alpaca bind method failed, expected "GET" or "PUT" type, got "%s"' % method_type
@@ -129,12 +168,13 @@ class Alpaca():
             self.bindMethod(method[0], method[1], method[2])
 
     class Transaction:
-        def __init__(self, client_transaction_id, server_transaction_id, client_id, request_type, request_path, params):
+        def __init__(self, client_transaction_id, server_transaction_id, client_id, request_type, request_path, method, params):
             self.client_transaction_id = client_transaction_id
             self.server_transaction_id = server_transaction_id
             self.client_id = client_id
             self.request_type = request_type
             self.request_path = request_path
+            self.method = method
             self.params = params
 
 
@@ -145,7 +185,7 @@ class Alpaca():
         #print('Request body: %s' % str(request_body))
     
         # parse url-encoded params:
-        (api, method, params) = self.parse_request_path(request_path)
+        (api, method, params) = self.__parse_request_path(request_path)
         #print('params:',params)
 
         # parse body-encoded params:
@@ -156,7 +196,7 @@ class Alpaca():
                 params[name.lower()] = val
 
         client_id = params['clientid'] if 'clientid' in params else 0
-        client_transaction_id = params['clienttransactionid'] if 'clienttransactionid' in params else 0
+        client_transaction_id = int(params['clienttransactionid']) if 'clienttransactionid' in params else 0
 
         transaction = self.Transaction(
             client_transaction_id = client_transaction_id,
@@ -164,10 +204,12 @@ class Alpaca():
             client_id = client_id,
             request_type = request_type,
             request_path = request_path,
+            method = method,
             params = params
         )
 
-        print('Request details: %s' % str((api, method, params)))
+        #print('Request details: %s' % str((api, method, params)))
+        #print("%s request from client ID %s, client transaction %i
         
         if api=="management":
             if method == "apiversions":
@@ -196,7 +238,8 @@ class Alpaca():
         elif api=="device_control":        
             device_type = params["device_type"]
             device_number = params["device_number"]
-            print("%s request:  device type %s, device number %s, method %s, params %s" % (request_type, device_type, device_number, method, str(params)))
+            print("%s request from client ID %s, client transaction %i: \n   device type %s, device number %s, method %s, params %s" \
+                % (request_type, client_id, client_transaction_id,  device_type, device_number, method, str(params)))
                     
             # Require either GET or PUT method:
             if request_type not in ("GET", "PUT"):
@@ -222,7 +265,7 @@ class Alpaca():
             #print('params: %s' % str(params))
             missing_params = []
             for required_param in required_params:
-                print('required param "%s" in params? %s' % (required_param, required_param in params))
+                #print('required param "%s" in params? %s' % (required_param, required_param in params))
                 if required_param not in params:
                     missing_params.append(required_param)
             if len(missing_params)>0:
@@ -231,7 +274,7 @@ class Alpaca():
                 error_message = 'Error, missing parameter(s): %s' % str(missing_params)
                 return (http_return_code, error_message)
 
-            print("%s request client_id: %s, client transaction ID: %s" % (request_type, client_id, client_transaction_id) )
+            #print("%s request client_id: %s, client transaction ID: %s" % (request_type, client_id, client_transaction_id) )
 
             return self.methods[request_type][method]["action"](transaction)
         
@@ -240,16 +283,16 @@ class Alpaca():
         print("Alpaca No op, params: %s" % str(params))
         
     
-    def nominal_response(self, transaction, response_params={}):
+    def nominal_response(self, transaction, value=None):
         response = {
             "ClientTransactionID": transaction.client_transaction_id,
             "ServerTransactionID": transaction.server_transaction_id,
             "ErrorNumber": 0,
             "ErrorMessage": "",
         }
-        print("len response params: %i" % len(response_params))
-        if len(response_params)==1:
-            response.update(response_params)
+        if value is not None:
+            response.update({"Value":value})
+        print('response: ',response)
         return (self.server.http_return_codes['VALID_REQUEST'], response)
         
     def error_response(self, transaction, error_number, error_message):
@@ -278,11 +321,11 @@ class Alpaca():
         }
         return (self.server.http_return_codes['VALID_REQUEST'], response)
     
-    def parse_request_path(self, request_path):
+    def __parse_request_path(self, request_path):
         (api, method, params) = (None, None, {})
         #print("Request path: %s" % request_path)
         path_fields        = request_path.split('/')
-        print('Path fields: %s' % str(path_fields))
+        #print('Path fields: %s' % str(path_fields))
         if path_fields[1]=="api" and len(path_fields)==6:
             api = "device_control"
             params["device_type"] = path_fields[3]
@@ -352,10 +395,10 @@ class Alpaca():
                     try:
                         request_body = self._read_request_body()
                     except Exception as ex:
-                        print('error parsing request body:')
+                        print('error parsing request body')
+                        print('Request body: "%s"' % request_body)
                         print(ex)
                         return
-                    print('Request body: "%s"' % request_body)
                     try:
                         (http_return_code, response_content) = alpaca.ProcessRequest(http_request_type, self.path, request_body)
                     except (ConnectionResetError, ConnectionAbortedError):
@@ -376,7 +419,7 @@ class Alpaca():
                     try:
                         print('\r\n=========== new request received ===========')
                         #print('Headers:')
-                        print(self.headers)
+                        #print(self.headers)
                         #print('CONTENT-LENGTH: %s' % str(self.headers.get('content-length')))
                         #print('TRANSFER-ENCODING: %s' % str(self.headers.get('Transfer-Encoding')))
                         #print('CONTENT-TYPE: %s' % str(self.headers.get('content-type')))
@@ -418,9 +461,9 @@ class Alpaca():
                     content_length = len(encoded_content)
                     try:
                         self._set_headers(http_return_code, content_length)
-                        print('Sending response...')
+                        #print('Sending response...')
                         self.wfile.write(encoded_content)
-                        print('Response sent')
+                        #print('Sent response ')
                     except Exception as ex:
                         print("exception", ex)                        
                     except (ConnectionResetError, ConnectionAbortedError):
@@ -432,73 +475,26 @@ class Alpaca():
                         content_type='application/json'
                     else:
                         content_type='text/plain'            
-                    print('Sending headers...')
+                    #print('Sending headers...')
                     try:
                         self.send_response(http_return_code)
                         self.send_header('Content-type', content_type)
                         self.send_header('Content-Length', str(content_length))
                         self.end_headers()   
-                        print('Sent headers')
+                        #print('Sent headers')
                     except Exception as ex:
                         print("exception", ex)                          
             
             return HttpHandler
 
 
-    '''
-    class DiscoveryResponder():
-        alpaca_discovery_group_address = "ff12::a1:9aca"        
-
-        def __init__(self, alpaca_server_address, alpaca_device_control_port, alpaca_discovery_port=32227):
-            self.server_address = alpaca_server_address
-            self.alpaca_device_control_port = alpaca_device_control_port
-            self.alpaca_discovery_port = alpaca_discovery_port
-            self.thread = threading.Thread(target=self.loop)
-            self.listen_sockets = []
-            self.response_message = '{\"alpacaport\": %i}' % self.alpaca_device_control_port
-            
-        def start(self):
-            print('Starting Alpaca discovery loop')
-            self.JoinMulticast()
-            self.daemon = True
-            self.thread.start()
-            
-        def loop(self):
-            while True:
-                for sock in self.listen_sockets:
-                    try:
-                        data, caller = sock.recvfrom(1024)
-                    except Exception as ex:
-                        print('discovery socket server exception:')
-                        print(ex)
-                    data_str = data.decode()
-                    print("From " + str(caller) + ": " + data_str)
-                    if "alpacadiscovery" in data_str:
-                        print('sending discovery response to %s' % str(caller))
-                        sock.sendto(self.response_message.encode(), caller)
-                        
-        def JoinMulticast(self):
-            self.listen_sockets = []
-            local_ip_addresses = socket.getaddrinfo('', None)  # get all ip
-            for addr in local_ip_addresses:
-                family = addr[0]
-                if family == AF_INET6:
-                    local_address = addr[4][0]
-                    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    sock.bind((local_address, self.alpaca_discovery_port))
-                    ipv6mr_interface = struct.pack('i', addr[4][3])
-                    ipv6_mreq = socket.inet_pton(socket.AF_INET6, self.alpaca_discovery_group_address) + ipv6mr_interface
-                    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, ipv6_mreq)
-                    self.listen_sockets.append(sock)
-                    print('listening on local address %s port %i for %s multicast group %s' % (str(local_address), self.alpaca_discovery_port, family, self.alpaca_discovery_group_address))
-    '''
-
     class DiscoveryResponder(Thread):
-        def __init__(self, ADDR, PORT):
+        def __init__(self, address, discovery_port, control_port):
+            self.discovery_port = discovery_port
+            self.control_port = control_port
             Thread.__init__(self)
-            self.device_address = (ADDR, 32227) #listen for any IP on Alpaca disc. port
-            self.alpaca_response  = "{\"alpacaport\": " + str(PORT) + "}"
+            self.device_address = (address, discovery_port) #listen for any IP on Alpaca disc. port
+            self.alpaca_response  = "{\"alpacaport\": " + str(control_port) + "}"
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  #share address
             if os.name != 'nt':
@@ -507,17 +503,19 @@ class Alpaca():
             try:
                 self.sock.bind(self.device_address)
             except:
-                print('Discovery responder: failure to bind')
+                print('Discovery responder failed to bind')
                 self.sock.close()
                 self.sock = 0
                 raise
             # OK start the listener
             self.daemon = True
+            print('Starting Alpaca discovery responder on port %i' % discovery_port)
             self.start()
         def run(self):
             while True:
                 data, addr = self.sock.recvfrom(1024)
                 datascii = str(data, 'ascii')
-                print('Disc rcv ' + datascii + ' from ' + str(addr))
+                print('Alpaca discovery responder received ' + datascii + ' from ' + str(addr))
                 if 'alpacadiscovery1' in datascii:
+                    print('informing client at %s that ASCOM-Remote server is operating on port %i' % (str(addr),  self.control_port))
                     self.sock.sendto(self.alpaca_response.encode(), addr)
