@@ -437,14 +437,18 @@ async def main():
     )
     
     switch_manager = SwitchManager(alpaca)
-    await switch_manager.start_discovery_loop()
-    time.sleep(5)
-    await switch_manager.start_state_check_loop()
+    await switch_manager.discover()
     
     alpaca.bindMethods(switch_manager.alpaca_methods)
     alpaca.start()
     print("\n\n\n >>>>>>>>>>>>  Kasa Alpaca server started  <<<<<<<<<<<<< \n\n")
     print(      "         Clients may now discover and connect...         \n\n\n")
+    print('To stop the Kasa ASCOM-remote server, press ctrl-c or close this window.\n\n\n')
+
+    time.sleep(10)
+    print('Starting switch state auto-rediscover and state check loops...')
+    await switch_manager.start_discovery_loop()
+    await switch_manager.start_state_check_loop()
 
 
 asyncio.run(main())
