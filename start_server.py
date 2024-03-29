@@ -423,7 +423,7 @@ async def main():
         "-a",
         "--address",
         type=str,
-        default="localhost",
+        default="0.0.0.0",
         help="Specify the IP address on which the server listens",
     )
     parser.add_argument(

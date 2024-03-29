@@ -119,7 +119,7 @@ class Alpaca():
     server_transaction_count = 0
     methods = {"GET":{}, "PUT":{}}
         
-    def __init__(self, device_type, server_address='127.0.0.1', control_port=8000, discovery_port=32227):
+    def __init__(self, device_type, server_address='0.0.0.0', control_port=8000, discovery_port=32227):
         assert device_type in self.api.supported_device_types, 'device type "%s" not supported' % device_type
         self.server_address = server_address
         self.control_port = control_port
